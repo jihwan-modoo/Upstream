@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.5.0
-		last updated on March 25, 2015
+		version 0.5.1
+		last updated on October 20, 2015
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
