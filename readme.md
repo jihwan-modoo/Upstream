@@ -20,11 +20,11 @@ To install Upstream, make sure `regulus/upstream` has been added to Laravel 5's 
 
 Then run `php composer.phar update` from the command line. Composer will install the Upstream package. Now, all you have to do is register the service provider and set up Upstream's alias in `config/app.php`. Add this to the `providers` array:
 
-	'Regulus\Upstream\UpstreamServiceProvider',
+	Regulus\Upstream\UpstreamServiceProvider::class,
 
 And add this to the `aliases` array:
 
-	'Upstream' => 'Regulus\Upstream\Facade',
+	'Upstream' => Regulus\Upstream\Facade::class,
 
 <a name="uploading-files"></a>
 ## Uploading Files
