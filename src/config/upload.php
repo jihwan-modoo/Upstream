@@ -16,7 +16,7 @@ return [
 		'fields'           => true, // use a string like "image" if you have only one file field called "image" that you would like to process or pass an array for specific file fields
 		'field_thumb'      => 'thumbnail_image',
 		'create_directory' => false,
-		'filename'         => false,
+		'filename'         => null,
 		'overwrite'        => false,
 		'return_json'      => false,
 		'no_cache_url'     => true,
@@ -33,7 +33,7 @@ return [
 
 		// image resizing
 		'image_resize'              => false,
-		'image_resize_max'          => false, // used in conjunction with imgMaxWidth and/or imgMaxHeight to resize only if image exceeds maximums; images that are smaller will not be upscaled
+		'image_resize_max'          => false, // used in conjunction with image_max_width and/or image_max_height to resize only if image exceeds maximums; images that are smaller will not be upscaled
 		'image_resize_default_type' => 'landscape', // if resizing but not cropping, this is the default cropping option (see Resizer bundle options)
 		'image_resize_quality'      => 75,
 		'image_thumb'               => false,
@@ -58,6 +58,17 @@ return [
 		'return_single_result'     => false,
 		'field_name_as_file_index' => true,
 	],
+
+	/*
+	|--------------------------------------------------------------------------
+	| Thumbnails Directory
+	|--------------------------------------------------------------------------
+	|
+	| The thumbnails directory which defaults to "thumbnails" which means
+	| thumbnail images will be stored one directory down from the larger image.
+	|
+	*/
+	'thumbnails_directory' => 'thumbnails',
 
 	/*
 	|--------------------------------------------------------------------------
