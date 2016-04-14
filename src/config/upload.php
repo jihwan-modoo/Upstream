@@ -32,14 +32,15 @@ return [
 		'image_max_height' => false,
 
 		// image resizing
-		'image_resize'              => false,
-		'image_resize_max'          => false, // used in conjunction with image_max_width and/or image_max_height to resize only if image exceeds maximums; images that are smaller will not be upscaled
-		'image_resize_default_type' => 'landscape', // if resizing but not cropping, this is the default cropping option (see Resizer bundle options)
-		'image_resize_quality'      => 75,
-		'image_thumb'               => false,
-		'image_crop'                => false,
-		'image_crop_thumb'          => true,
-		'image_dimensions'          => [
+		'image_resize'               => false,
+		'image_resize_max'           => false, // used in conjunction with image_max_width and/or image_max_height to resize only if image exceeds maximums; images that are smaller will not be upscaled
+		'image_resize_default_type'  => 'landscape', // if resizing but not cropping, this is the default cropping option (see Resizer bundle options)
+		'image_resize_quality'       => 75,
+		'image_thumb'                => false,
+		'image_crop'                 => false,
+		'image_crop_thumb'           => true,
+		'image_crop_delete_original' => true,
+		'image_dimensions'           => [
 			'w'  =>	1024, // image width
 			'h'  =>	768,  // image height
 			'tw' => 180,  // thumbnail image width

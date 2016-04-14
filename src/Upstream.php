@@ -6,11 +6,10 @@
 
 		created by Cody Jassman
 		version 0.6.0
-		last updated on January 17, 2016
+		last updated on April 14, 2016
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\URL;
 
 use Intervention\Image\ImageManagerStatic as Image;
 
@@ -140,7 +139,8 @@ class Upstream {
 					}
 					else
 					{
-						$fileInfo            = $filesInfo;
+						$fileInfo = $filesInfo;
+
 						$this->files[$field] = (object) [
 							'name'    => trim($fileInfo['name']),
 							'type'    => $fileInfo['type'],
@@ -336,7 +336,7 @@ class Upstream {
 
 								if ($resizeType == "crop")
 								{
-									$image->resize($resizeDimensions['w'] * 1.4, $resizeDimensions['h'] * 1.4, function ($constraint)
+									$image->resize($resizeDimensions['w'] * 1.4, $resizeDimensions['h'] * 1.4, function($constraint)
 									{
 										$constraint->aspectRatio();
 									});
@@ -420,7 +420,16 @@ class Upstream {
 		}
 		else
 		{
-			if (in_array($this->config['filename'], array('[LOWERCASE]', '[UNDERSCORED]', '[LOWERCASE-UNDERSCORED]', '[DASHED]', '[LOWERCASE-DASHED]', '[RANDOM]')))
+			$specialNames = [
+				'[LOWERCASE]',
+				'[UNDERSCORED]',
+				'[LOWERCASE-UNDERSCORED]',
+				'[DASHED]',
+				'[LOWERCASE-DASHED]',
+				'[RANDOM]',
+			];
+
+			if (in_array($this->config['filename'], $specialNames))
 				$filename = $this->filename($originalFilename, $this->config['filename']);
 			else
 				$filename = $this->filename($this->config['filename']);
@@ -478,6 +487,31 @@ class Upstream {
 		}
 
 		return $file;
+	}
+
+	/**
+	 * Get a file object from a file path.
+	 *
+	 * @param  string   $path
+	 * @return mixed
+	 */
+	public function getFile($path)
+	{
+		if (!is_file($path))
+			return null;
+
+		$pathArray = explode('/', $path);
+		$filename  = end($pathArray);
+
+		return (object) [
+			'name'    => $filename,
+			'type'    => File::extension($filename),
+			'tmpName' => null,
+			'error'   => false,
+			'size'    => filesize($path),
+			'field'   => null,
+			'key'     => 0,
+		];
 	}
 
 	/**
@@ -551,10 +585,10 @@ class Upstream {
 	 */
 	public function createThumbnailImage($file = null)
 	{
-		$resizeDimensions = array(
+		$resizeDimensions = [
 			'w' => $this->config['imageDimensions']['tw'],
 			'h' => $this->config['imageDimensions']['th'],
-		);
+		];
 
 		$thumbsPath = $this->config['path'].config('upload.thumbnails_directory').'/';
 		if ($this->config['createDirectory'] && !is_dir($thumbsPath))
@@ -594,12 +628,23 @@ class Upstream {
 		// resize image
 		$image = Image::make($thumbSource);
 
-		$image->resize($resizeDimensions['w'] * 1.4, $resizeDimensions['h'] * 1.4, function ($constraint)
+		$aspectRatioMatches = ($file->imageDimensions->w / $file->imageDimensions->h) == ($resizeDimensions['w'] / $resizeDimensions['h']);
+
+		$resizeDimensionsAdjusted = $resizeDimensions;
+		if (!$aspectRatioMatches)
+		{
+			$resizeDimensionsAdjusted['w'] = $resizeDimensions['w'] * 1.4;
+			$resizeDimensionsAdjusted['h'] = $resizeDimensions['h'] * 1.4;
+		}
+
+		$image->resize($resizeDimensionsAdjusted['w'], $resizeDimensionsAdjusted['h'], function($constraint)
 		{
 			$constraint->aspectRatio();
 		});
 
-		$image->crop($resizeDimensions['w'], $resizeDimensions['h']);
+		if (!$aspectRatioMatches)
+			$image->crop($resizeDimensions['w'], $resizeDimensions['h']);
+
 		$image->save($thumbsPath.$thumbFilename, $this->config['imageResizeQuality']);
 
 		$this->returnData->error = false;
@@ -630,36 +675,47 @@ class Upstream {
 	 */
 	public function cropImage($config = [])
 	{
-		$config     = array_merge($this->formatDefaultConfig(config('upload.defaults.crop')), $config);
-		$returnData = (object) ['error' => 'Something went wrong. Please try again.'];
-		$path       = $config['path'];
+		$this->config = array_merge($this->formatDefaultConfig(), $config);
 
-		$originalFilename = $config['filename'];
-		$originalFileExt  = File::extension($config['filename']);
+		$this->returnData = (object) [
+			'error'     => true,
+			'message'   => 'Something went wrong. Please try again.',
+			'uploaded'  => 0,
+			'attempted' => 0,
+			'files'     => [],
+		];
+
+		$path = $this->config['path'];
+
+		$originalFilename = $this->config['filename'];
+		$originalFileExt  = File::extension($this->config['filename']);
 
 		// error check 1: file not found
 		if (!is_file($path.$originalFilename))
 		{
-			$returnData->error = 'The file you specified was not found ('.$originalFilename.').';
-			return $returnData;
+			$this->returnData->message = 'The file you specified was not found ('.$originalFilename.').';
+			return $this->returnData;
 		}
 
 		// error check 2: file is not an image
 		if (!in_array($originalFileExt, $this->imageExtensions))
 		{
-			$returnData->error = 'The file you specified was not an image ('.$originalFilename.').';
-			return $returnData;
+			$this->returnData->message = 'The file you specified was not an image ('.$originalFilename.').';
+			return $this->returnData;
 		}
 
-		if (!$config['newPath'])     $config['newPath']     = $config['path'];
-		if (!$config['newFilename']) $config['newFilename'] = $config['filename'];
+		if (!isset($this->config['newPath']) || !$this->config['newPath'])
+			$this->config['newPath'] = $this->config['path'];
 
-		$newPath = $config['newPath'];
+		if (!isset($this->config['newFilename']) || !$this->config['newFilename'])
+			$this->config['newFilename'] = $this->config['filename'];
 
-		if (!$config['newFilename'])
-			$filename = $this->filename($config['filename']);
+		$newPath = $this->config['newPath'];
+
+		if (!$this->config['newFilename'])
+			$filename = $this->filename($this->config['filename']);
 		else
-			$filename = $this->filename($config['newFilename']);
+			$filename = $this->filename($this->config['newFilename']);
 
 		$fileExt = File::extension($filename);
 
@@ -691,40 +747,40 @@ class Upstream {
 		if (isset($imageOriginal))
 		{
 			// error check 3: file exists and overwrite not set
-			if (is_file($newPath.$file->newFilename))
+			if (is_file($newPath.$filename))
 			{
-				if ($config['overwrite']) // delete existing file if it exists and overwrite is set
+				if ($this->config['overwrite']) // delete existing file if it exists and overwrite is set
 				{
-					unlink($newPath.$file->newFilename);
+					unlink($newPath.$filename);
 				}
 				else
 				{
-					$returnData->error = 'A file already exists with the name specified ('.$file->newFilename.').';
-					return $returnData;
+					$this->returnData->message = 'A file already exists with the name specified ('.$filename.').';
+					return $this->returnData;
 				}
 			}
 
-			if (!is_dir($config['newPath']))
+			if (!is_dir($newPath))
 			{
-				if ($config['createDirectory'])
+				if ($this->config['createDirectory'])
 				{
-					$this->createDirectory($config['newPath']);
+					$this->createDirectory($this->config['newPath']);
 				}
 				else
 				{
-					$returnData->error = 'The directory you specified does not exist ('.$config['newPath'].').';
-					return $returnData;
+					$this->returnData->message = 'The directory you specified does not exist ('.$newPath.').';
+					return $this->returnData;
 				}
 			}
 
 			// crop image
-			$imageCropped = imagecreatetruecolor($config['imageDimensions']['w'], $config['imageDimensions']['h']);
+			$imageCropped = imagecreatetruecolor($this->config['imageDimensions']['w'], $this->config['imageDimensions']['h']);
 
 			imagecopyresampled(
 				$imageCropped, $imageOriginal, 0, 0,
-				$config['cropPosition']['x'],    $config['cropPosition']['y'],
-				$config['imageDimensions']['w'], $config['imageDimensions']['h'],
-				$config['cropPosition']['w'],    $config['cropPosition']['h']
+				$this->config['cropPosition']['x'],    $this->config['cropPosition']['y'],
+				$this->config['imageDimensions']['w'], $this->config['imageDimensions']['h'],
+				$this->config['cropPosition']['w'],    $this->config['cropPosition']['h']
 			);
 
 			// save cropped image to file
@@ -735,12 +791,26 @@ class Upstream {
 			elseif ($fileType == "png")
 				imagepng($imageCropped, $newPath.$filename, 72);
 
-			$returnData->error = false;
-			$returnData->name  = $filename;
-			$returnData->path  = $newPath;
+			// create thumbnail image if necessary
+			if ($this->config['imageThumb'])
+			{
+				$file = $this->getFile($newPath.$filename);
+
+				$this->config['filename'] = $filename;
+
+				$this->createThumbnailImage($file);
+			}
+
+			if ($this->config['imageCropDeleteOriginal'] && $filename != $originalFilename && is_file($path.$originalFilename))
+				unlink($path.$originalFilename);
+
+			$this->returnData->error   = false;
+			$this->returnData->message = null;
+			$this->returnData->name    = $filename;
+			$this->returnData->path    = $newPath;
 		}
 
-		return $returnData;
+		return $this->returnData;
 	}
 
 	/**
@@ -882,7 +952,7 @@ class Upstream {
 
 							$file = (object) [
 								'name'       => $filename,
-								'url'        => URL::to($path.$filename),
+								'url'        => url($path.$filename),
 								'fileSize'   => filesize($path.$filename),
 								'fileType'   => filetype($path.$filename),
 								'isImage'    => $this->isImage($filename),
@@ -892,7 +962,7 @@ class Upstream {
 							];
 
 							if ($file->isImage)
-								$file->thumbnailUrl = is_file($path.$thumbnailsDirectory.'/'.$filename) ? URL::to($path.$thumbnailsDirectory.'/'.$filename) : $file->url;
+								$file->thumbnailUrl = is_file($path.$thumbnailsDirectory.'/'.$filename) ? url($path.$thumbnailsDirectory.'/'.$filename) : $file->url;
 							else
 								$file->thumbnailUrl = url($this->config['defaultThumb']);
 
