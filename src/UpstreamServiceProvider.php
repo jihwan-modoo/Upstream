@@ -19,7 +19,13 @@ class UpstreamServiceProvider extends ServiceProvider {
 	public function boot()
 	{
 		$this->publishes([
-			__DIR__.'/config/upload.php' => config_path('upload.php'),
+			__DIR__.'/config/upload.php'  => config_path('upload.php'),
+		]);
+
+		$this->loadTranslationsFrom(__DIR__.'/lang', 'upstream');
+
+		$this->publishes([
+			__DIR__.'/lang' => resource_path('lang/vendor/upstream'),
 		]);
 	}
 

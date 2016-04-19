@@ -47,10 +47,10 @@ return [
 			'th' => 180,  // thumbnail image height
 		],
 		'image_crop_position' => [
-			'x' => 0,
-			'y' => 0,
-			'w' => 180,
-			'h' => 180,
+			'x' => 0, // X position
+			'y' => 0, // Y position
+			'w' => 180, // width of cropped area
+			'h' => 180, // height of cropped area
 		],
 
 		'display_name'  => false, // use false to use filename as display name

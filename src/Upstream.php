@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.0
-		last updated on April 14, 2016
+		version 0.6.1
+		last updated on April 18, 2016
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -183,7 +183,7 @@ class Upstream {
 					if ($this->config['overwrite']) //delete existing file if it exists and overwrite is set
 						unlink($this->config['path'].$file->newFilename);
 					else //file exists but overwrite is not set; do not upload
-						$error = 'A file already exists with the name specified ('.$file->newFilename.').';
+						$error = trans('upstream::errors.file_already_exists', ['filename' => $file->newFilename]);
 				}
 
 				// error check 2: file type
@@ -191,20 +191,20 @@ class Upstream {
 				{
 					if ($file->name != "")
 					{
-						if (!in_array($file->extension, $this->config['fileTypes']))
+						if (!in_array($file->originalExtension, $this->config['fileTypes']))
 						{
 							if ($fileTypesImage)
-								$error = 'You must upload an image file.';
+								$error = trans('upstream::errors.image_required');
 							else
-								$error = 'You must upload a file in one of the following formats: '.implode(', ', $this->config['fileTypes']).'. ('.$file->name.')';
+								$error = trans('upstream::errors.formats_required', ['formats' => implode(', ', $this->config['fileTypes'])]);
 						}
 					}
 					else
 					{
 						if ($fileTypesImage)
-							$error = 'You must upload an image.';
+							$error = trans('upstream::errors.image_required');
 						else
-							$error = 'You must upload a file.';
+							$error = trans('upstream::errors.file_required');
 					}
 				}
 
@@ -213,21 +213,26 @@ class Upstream {
 				{
 					$maxFileSize = $this->config['maxFileSize'];
 
-					if (substr($this->config['maxFileSize'], -2) == "KB") {
+					if (substr($this->config['maxFileSize'], -2) == "KB")
+					{
 						$maxFileSizeBytes = str_replace('KB', '', $this->config['maxFileSize']) * 1024;
-					} else if (substr($this->config['maxFileSize'], -2) == "MB") {
+					}
+					else if (substr($this->config['maxFileSize'], -2) == "MB")
+					{
 						$maxFileSizeBytes = str_replace('MB', '', $this->config['maxFileSize']) * 1024 * 1024;
-					} else {
+					}
+					else
+					{
 						$maxFileSizeBytes = str_replace('B', '', $this->config['maxFileSize']);
 						$maxFileSize      = $this->config['maxFileSize'].'B';
 					}
 
 					if ($file->size > $maxFileSizeBytes)
-						$error = 'Your file must not exceed '.$maxFileSize.'.';
+						$error = trans('upstream::errors.max_file_size', ['maxFileSize' => $maxFileSize]);
 				}
 
 				// error check 4: minimum image dimensions
-				if (!$error && in_array($file->extension, $this->imageExtensions) && !empty($dimensions) && ($this->config['imageMinWidth'] || $this->config['imageMinHeight']))
+				if (!$error && in_array($file->originalExtension, $this->imageExtensions) && !empty($dimensions) && ($this->config['imageMinWidth'] || $this->config['imageMinHeight']))
 				{
 					$errorWidth  = $this->config['imageMinWidth']  && $dimensions['w'] < $this->config['imageMinWidth'];
 					$errorHeight = $this->config['imageMinHeight'] && $dimensions['h'] < $this->config['imageMinHeight'];
@@ -235,13 +240,25 @@ class Upstream {
 					if ($errorWidth || $errorHeight)
 					{
 						if ($this->config['imageMinWidth'] && $this->config['imageMinHeight'])
-							$error = 'Your image must be at least '.$this->config['imageMinWidth'].' x '.$this->config['imageMinHeight'].'. ';
+						{
+							$error = trans('upstream::errors.min_image_size', [
+								'minWidth'  => $this->config['imageMinWidth'],
+								'minHeight' => $this->config['imageMinHeight'],
+							]);
+						}
 						elseif ($this->config['imageMinWidth'])
-							$error = 'Your image must be at least '.$this->config['imageMinWidth'].' pixels in width.';
+						{
+							$error = trans('upstream::errors.min_image_width', ['minWidth' => $this->config['imageMinWidth']]);
+						}
 						elseif ($this->config['imageMinHeight'])
-							$error = 'Your image must be at least '.$this->config['imageMinHeight'].' pixels in height.';
+						{
+							$error = trans('upstream::errors.min_image_height', ['minHeight' => $this->config['imageMinHeight']]);
+						}
 
-						$error .= 'Your uploaded image dimensions were '.$dimensions['w'].' x '.$dimensions['h'].'.';
+						$error .= ' '.trans('upstream::errors.image_size_actual', [
+							'width'  => $dimensions['w'],
+							'height' => $dimension['h'],
+						]);
 					}
 				}
 
@@ -249,7 +266,7 @@ class Upstream {
 				$maxWidthExceeded  = false;
 				$maxHeightExceeded = false;
 
-				if (!$error && in_array($file->extension, $this->imageExtensions) && !empty($dimensions)
+				if (!$error && in_array($file->originalExtension, $this->imageExtensions) && !empty($dimensions)
 				&& ($this->config['imageMaxWidth'] || $this->config['imageMaxHeight']))
 				{
 					if ($this->config['imageMaxWidth'] && $dimensions['w'] > $this->config['imageMaxWidth'])
@@ -261,13 +278,25 @@ class Upstream {
 					if (!$this->config['imageResizeMax'] && ($maxWidthExceeded || $maxHeightExceeded))
 					{
 						if ($this->config['imageMaxWidth'] && $this->config['imageMaxHeight'])
-							$error = 'Your image must be '.$this->config['imageMaxWidth'].' x '.$this->config['imageMaxHeight'].' or less. ';
+						{
+							$error = trans('upstream::errors.max_image_size', [
+								'maxWidth'  => $this->config['imageMaxWidth'],
+								'maxHeight' => $this->config['imageMaxHeight'],
+							]);
+						}
 						elseif ($this->config['imageMaxWidth'])
-							$error = 'Your image must be '.$this->config['imageMaxWidth'].' pixels in width or less.';
+						{
+							$error = trans('upstream::errors.max_image_width', ['maxWidth' => $this->config['imageMaxWidth']]);
+						}
 						elseif ($this->config['imageMaxHeight'])
-							$error = 'Your image must be '.$this->config['imageMaxHeight'].' pixels in height or less.';
+						{
+							$error = trans('upstream::errors.max_image_height', ['maxHeight' => $this->config['imageMaxHeight']]);
+						}
 
-						$error .= 'Your uploaded image dimensions were '.$dimensions['w'].' x '.$dimensions['h'].'.';
+						$error .= ' '.trans('upstream::errors.image_size_actual', [
+							'width'  => $dimensions['w'],
+							'height' => $dimension['h'],
+						]);
 					}
 				}
 
@@ -284,7 +313,7 @@ class Upstream {
 					// resize image if necessary
 					if ($fileTransferred)
 					{
-						if (in_array($file->extension, $this->imageExtensions))
+						if (in_array($file->originalExtension, $this->imageExtensions))
 						{
 							if ($this->config['imageResize']
 							|| ($this->config['imageResizeMax'] && ($maxWidthExceeded || $maxHeightExceeded)))
@@ -345,7 +374,10 @@ class Upstream {
 								}
 								else
 								{
-									$image->resize($resizeDimensions['w'], $resizeDimensions['h']);
+									$image->resize($resizeDimensions['w'], $resizeDimensions['h'], function($constraint)
+									{
+										$constraint->aspectRatio();
+									});
 								}
 
 								$image->save($this->config['path'].$file->newFilename, $this->config['imageResizeQuality']);
@@ -367,10 +399,14 @@ class Upstream {
 					}
 					else
 					{
-						$this->returnData->files[$fileIndex]->error = 'Something went wrong. Please try again.';
+						$this->returnData->files[$fileIndex] = (object) [
+							'error' => trans('upstream::errors.general'),
+						];
 					}
 				} else {
-					$this->returnData->files[$fileIndex]->error = $error;
+					$this->returnData->files[$fileIndex] = (object) [
+						'error' => $error,
+					];
 				}
 
 				$this->returnData->files[$fileIndex]->field = $file->field;
@@ -411,8 +447,8 @@ class Upstream {
 		if (isset($file->newFilename))
 			return $file;
 
-		$originalFilename = $file->name;
-		$originalFileExt  = strtolower(File::extension($originalFilename));
+		$originalFilename  = $file->name;
+		$originalExtension = strtolower(File::extension($originalFilename));
 
 		if (!$this->config['filename'])
 		{
@@ -436,24 +472,26 @@ class Upstream {
 		}
 
 		$filename = str_replace('[KEY]', $file->key, $filename);
-		$fileExt  = File::extension($filename);
+		$extension  = File::extension($filename);
 
 		// if file extension doesn't exist, use original extension
-		if ($fileExt == "") {
-			$fileExt   = $originalFileExt;
-			$filename .= '.'.$fileExt;
+		if ($extension == "")
+		{
+			$extension = $originalExtension;
+			$filename .= '.'.$extension;
 		}
 
-		$file->newFilename = $filename;
-		$file->basename    = str_replace('.'.$fileExt, '', $filename);
-		$file->extension   = $fileExt;
+		$file->newFilename       = $filename;
+		$file->basename          = str_replace('.'.$extension, '', $filename);
+		$file->extension         = $extension;
+		$file->originalExtension = $originalExtension;
 
 		if ($this->config['displayName'] && is_string($this->config['displayName']))
 			$file->displayName = $this->config['displayName'];
 		else
 			$file->displayName = $file->newFilename;
 
-		$file->isImage         = in_array($originalFileExt, $this->imageExtensions);
+		$file->isImage         = in_array($originalExtension, $this->imageExtensions);
 		$file->imageDimensions = (object) [
 			'w'  => null,
 			'h'  => null,
@@ -679,7 +717,7 @@ class Upstream {
 
 		$this->returnData = (object) [
 			'error'     => true,
-			'message'   => 'Something went wrong. Please try again.',
+			'message'   => trans('upstream::errors.general'),
 			'uploaded'  => 0,
 			'attempted' => 0,
 			'files'     => [],
