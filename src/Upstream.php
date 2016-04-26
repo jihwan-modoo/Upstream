@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.1
-		last updated on April 18, 2016
+		version 0.6.2
+		last updated on April 25, 2016
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -812,22 +812,40 @@ class Upstream {
 			}
 
 			// crop image
-			$imageCropped = imagecreatetruecolor($this->config['imageDimensions']['w'], $this->config['imageDimensions']['h']);
 
-			imagecopyresampled(
-				$imageCropped, $imageOriginal, 0, 0,
-				$this->config['cropPosition']['x'],    $this->config['cropPosition']['y'],
-				$this->config['imageDimensions']['w'], $this->config['imageDimensions']['h'],
-				$this->config['cropPosition']['w'],    $this->config['cropPosition']['h']
-			);
+			// if no crop position is set, crop image from center
+			if (!isset($this->config['cropPosition']) || is_null($this->config['cropPosition']))
+			{
+				$image = Image::make($imageOriginal);
 
-			// save cropped image to file
-			if ($fileType == "jpg")
-				imagejpeg($imageCropped, $newPath.$filename, 72);
-			elseif ($fileType == "gif")
-				imagegif($imageCropped, $newPath.$filename);
-			elseif ($fileType == "png")
-				imagepng($imageCropped, $newPath.$filename, 72);
+				$image->resize($this->config['imageDimensions']['w'] * 1.4, $this->config['imageDimensions']['h'] * 1.4, function($constraint)
+				{
+					$constraint->aspectRatio();
+				});
+
+				$image->crop($this->config['imageDimensions']['w'], $this->config['imageDimensions']['h']);
+
+				$image->save($newPath.$filename, $this->config['imageResizeQuality']);
+			}
+			else // otherwise, crop from supplied position data
+			{
+				$imageCropped = imagecreatetruecolor($this->config['imageDimensions']['w'], $this->config['imageDimensions']['h']);
+
+				imagecopyresampled(
+					$imageCropped, $imageOriginal, 0, 0,
+					$this->config['cropPosition']['x'],    $this->config['cropPosition']['y'],
+					$this->config['imageDimensions']['w'], $this->config['imageDimensions']['h'],
+					$this->config['cropPosition']['w'],    $this->config['cropPosition']['h']
+				);
+
+				// save cropped image to file
+				if ($fileType == "jpg")
+					imagejpeg($imageCropped, $newPath.$filename, 72);
+				elseif ($fileType == "gif")
+					imagegif($imageCropped, $newPath.$filename);
+				elseif ($fileType == "png")
+					imagepng($imageCropped, $newPath.$filename, 72);
+			}
 
 			// create thumbnail image if necessary
 			if ($this->config['imageThumb'])

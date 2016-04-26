@@ -94,4 +94,4 @@ An entire set of configuration array is available in the config file at `src/con
 
 	$result = Upstream::cropImage($config);
 
-You may use a JavaScript image cropper such as [Cropper](http://fengyuanchen.github.io/cropper) to set the `cropPosition`.
+You may use a JavaScript image cropper such as [Cropper](http://fengyuanchen.github.io/cropper) to set the `cropPosition`. If you leave `cropPosition` null or unset, the image will first be scaled to 140% of the target dimensions and then cropped from the center.
