@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.3
-		last updated on May 3, 2016
+		version 0.6.4
+		last updated on June 2, 2016
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -840,11 +840,11 @@ class Upstream {
 
 				// save cropped image to file
 				if ($fileType == "jpg")
-					imagejpeg($imageCropped, $newPath.$filename, 72);
+					imagejpeg($imageCropped, $newPath.$filename, $this->config['imageResizeQuality']);
 				elseif ($fileType == "gif")
 					imagegif($imageCropped, $newPath.$filename);
 				elseif ($fileType == "png")
-					imagepng($imageCropped, $newPath.$filename, 72);
+					imagepng($imageCropped, $newPath.$filename);
 			}
 
 			// create thumbnail image if necessary
