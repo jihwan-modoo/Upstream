@@ -30,13 +30,13 @@ Finally, run `php artisan vendor:publish` to publish the config file and languag
 ## Uploading Files
 
 	$config = [
-		'path'            => 'uploads/pdfs', //the path to upload to
-		'fields'          => 'file',         //name of field or fields
-		'filename'        => 'temp',         //the basename of the file (extension will be added automatically)
-		'fileTypes'       => ['png', 'jpg'], //the file types to allow
-		'createDirectory' => true,           //automatically creates directory if it doesn't exist
-		'overwrite'       => true,           //whether or not to overwrite existing file of the same name
-		'maxFileSize'     => '5MB',          //the maximum filesize of file to be uploaded
+		'path'            => 'uploads/pdfs', // the path to upload to
+		'field'           => 'file',         // name of field (use "fields" for an array with multiple fields)
+		'filename'        => 'temp',         // the basename of the file (extension will be added automatically)
+		'fileTypes'       => ['png', 'jpg'], // the file types to allow
+		'createDirectory' => true,           // automatically creates directory if it doesn't exist
+		'overwrite'       => true,           // whether or not to overwrite existing file of the same name
+		'maxFileSize'     => '5MB',          // the maximum filesize of file to be uploaded
 	];
 
 	$upstream = Upstream::make($config);
@@ -49,7 +49,7 @@ Finally, run `php artisan vendor:publish` to publish the config file and languag
 
 	$config = [
 		'path'               => 'uploads/images',
-		'fields'             => 'file',
+		'fields'             => ['picture', 'picture2'],
 		'filename'           => 'temp',
 		'fileTypes'          => 'images',
 		'createDirectory'    => true,
@@ -85,9 +85,9 @@ An entire set of configuration array is available in the config file at `src/con
 			'th' => 120, // thumbnail image height
 		],
 		'cropPosition' => [
-			'x' => $input['x'], // X position
-			'y' => $input['y'], // Y position
-			'w' => $input['width'], // width of cropped area
+			'x' => $input['x'],      // X position
+			'y' => $input['y'],      // Y position
+			'w' => $input['width'],  // width of cropped area
 			'h' => $input['height'], // height of cropped area
 		],
 	];

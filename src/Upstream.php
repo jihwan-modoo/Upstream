@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.5
-		last updated on January 25, 2017
+		version 0.6.6
+		last updated on March 22, 2017
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -75,6 +75,17 @@ class Upstream {
 		if (!empty($config))
 			$this->config = array_merge($this->config, $config);
 
+		// set field/fields
+		if (isset($this->config['field']) && is_string($this->config['field']))
+		{
+			$this->config['fields'] = [$this->config['field']];
+
+			unset($this->config['field']);
+		}
+
+		if (isset($this->config['fields']) && is_string($this->config['fields']))
+			$this->config['fields'] = [$this->config['fields']];
+
 		// set file types config
 		if ($this->config['fileTypes'] != '*')
 		{
@@ -84,9 +95,14 @@ class Upstream {
 		}
 
 		// format error triggers
-		if ($this->config['maxFileSize'])    $this->config['maxFileSize']    = strtoupper(str_replace(' ', '', $this->config['maxFileSize']));
-		if ($this->config['imageMinWidth'])  $this->config['imageMinWidth']  = str_replace('px', '', strtolower($this->config['imageMinWidth']));
-		if ($this->config['imageMinHeight']) $this->config['imageMinHeight'] = str_replace('px', '', strtolower($this->config['imageMinHeight']));
+		if ($this->config['maxFileSize'])
+			$this->config['maxFileSize'] = strtoupper(str_replace(' ', '', $this->config['maxFileSize']));
+
+		if ($this->config['imageMinWidth'])
+			$this->config['imageMinWidth'] = str_replace('px', '', strtolower($this->config['imageMinWidth']));
+
+		if ($this->config['imageMinHeight'])
+			$this->config['imageMinHeight'] = str_replace('px', '', strtolower($this->config['imageMinHeight']));
 
 		$this->returnData = (object) [
 			'error'     => true,
@@ -103,57 +119,7 @@ class Upstream {
 			$this->config['path'] .= "/";
 
 		// create files array
-		$this->files = [];
-
-		foreach ($_FILES as $field => $filesInfo)
-		{
-			if (!empty($filesInfo))
-			{
-				// check if field is set to be uploaded in "fields" configuration
-				if ((is_string($this->config['fields']) && $this->config['fields'] == $field)
-				|| (is_array($this->config['fields']) && in_array($field, $this->config['fields']))
-				|| (is_bool($this->config['fields']) && $this->config['fields']))
-					$uploadFile = true;
-				else
-					$uploadFile = false;
-
-				if ($uploadFile && isset($filesInfo['name']))
-				{
-					// array of files exists rather than just a single file; loop through them
-					if (is_array($filesInfo['name']))
-					{
-						$keys = array_keys($filesInfo['name']);
-
-						foreach ($keys as $key)
-						{
-							$this->files[$field] = (object) [
-								'name'    => trim($filesInfo['name'][$key]),
-								'type'    => $filesInfo['type'][$key],
-								'tmpName' => $filesInfo['tmp_name'][$key],
-								'error'   => $filesInfo['error'][$key],
-								'size'    => $filesInfo['size'][$key],
-								'field'   => $field,
-								'key'     => $key,
-							];
-						}
-					}
-					else
-					{
-						$fileInfo = $filesInfo;
-
-						$this->files[$field] = (object) [
-							'name'    => trim($fileInfo['name']),
-							'type'    => $fileInfo['type'],
-							'tmpName' => $fileInfo['tmp_name'],
-							'error'   => $fileInfo['error'],
-							'size'    => $fileInfo['size'],
-							'field'   => $field,
-							'key'     => 0,
-						];
-					}
-				}
-			}
-		}
+		$this->files = $this->getFilesArray($this->config['fields']);
 
 		$f = 1;
 		foreach ($this->files as $i => &$file)
@@ -383,6 +349,63 @@ class Upstream {
 								$image->save($this->config['path'].$file->newFilename, $this->config['imageResizeQuality']);
 							}
 
+							// if extension does not match original, convert image to new format
+							if (strtolower($file->extension) != strtolower($file->originalExtension))
+							{
+								$image = null;
+
+								$imagePath = $file->path.$file->newFilename;
+
+								switch ($file->originalExtension)
+								{
+									case "gif":
+
+										$image = imagecreatefromgif($imagePath);
+
+										break;
+
+									case "jpg":
+									case "jpeg":
+
+										$image = imagecreatefromjpeg($imagePath);
+
+										break;
+
+									case "png":
+
+										$image = imagecreatefrompng($imagePath);
+
+										break;
+								}
+
+								if (!is_null($image))
+								{
+									switch ($file->extension)
+									{
+										case "gif":
+
+											imagegif($image, $imagePath);
+
+											break;
+
+										case "jpg":
+										case "jpeg":
+
+											imagejpeg($image, $imagePath, $this->config['imageResizeQuality']);
+
+											break;
+
+										case "png":
+
+											imagepng($image, $imagePath, $this->config['imageResizeQuality']);
+
+											break;
+									}
+
+									imagedestroy($image);
+								}
+							}
+
 							// create thumbnail image if necessary
 							if ($this->config['imageThumb'])
 								$this->createThumbnailImage($file);
@@ -437,6 +460,69 @@ class Upstream {
 	}
 
 	/**
+	 * Get and standardize the files array.
+	 *
+	 * @param  mixed    $fields
+	 * @return array
+	 */
+	public function getFilesArray($fields = true)
+	{
+		$files = [];
+
+		if (is_string($fields))
+			$fields = [$fields];
+
+		foreach ($_FILES as $field => $filesInfo)
+		{
+			if (!empty($filesInfo))
+			{
+				if ((is_array($fields) && in_array($field, $fields)) || (is_bool($fields) && $fields))
+					$uploadFile = true;
+				else
+					$uploadFile = false;
+
+				if ($uploadFile && isset($filesInfo['name']))
+				{
+					// array of files exists rather than just a single file; loop through them
+					if (is_array($filesInfo['name']))
+					{
+						$keys = array_keys($filesInfo['name']);
+
+						foreach ($keys as $key)
+						{
+							$files[$field] = (object) [
+								'name'    => trim($filesInfo['name'][$key]),
+								'type'    => $filesInfo['type'][$key],
+								'tmpName' => $filesInfo['tmp_name'][$key],
+								'error'   => $filesInfo['error'][$key],
+								'size'    => $filesInfo['size'][$key],
+								'field'   => $field,
+								'key'     => $key,
+							];
+						}
+					}
+					else
+					{
+						$fileInfo = $filesInfo;
+
+						$files[$field] = (object) [
+							'name'    => trim($fileInfo['name']),
+							'type'    => $fileInfo['type'],
+							'tmpName' => $fileInfo['tmp_name'],
+							'error'   => $fileInfo['error'],
+							'size'    => $fileInfo['size'],
+							'field'   => $field,
+							'key'     => 0,
+						];
+					}
+				}
+			}
+		}
+
+		return $files;
+	}
+
+	/**
 	 * Add additional data to a file array.
 	 *
 	 * @param  array    $file
@@ -471,8 +557,9 @@ class Upstream {
 				$filename = $this->filename($this->config['filename']);
 		}
 
-		$filename = str_replace('[KEY]', $file->key, $filename);
-		$extension  = File::extension($filename);
+		$filename  = str_replace('[KEY]', $file->key, $filename);
+		$filename  = str_replace('[FIELD]', $file->field, $filename);
+		$extension = File::extension($filename);
 
 		// if file extension doesn't exist, use original extension
 		if ($extension == "")
@@ -985,7 +1072,9 @@ class Upstream {
 					$config['fileTypeOrder'] = $this->formatFileTypesList($config['fileTypeOrder']);
 
 					$files = glob($path.'*.{'.implode(',', $config['fileTypeOrder']).'}', GLOB_BRACE);
-				} else {
+				}
+				else
+				{
 					$files = scandir($path);
 				}
 
@@ -1058,14 +1147,18 @@ class Upstream {
 				$config['fileTypeOrder'] = $this->formatFileTypesList($config['fileTypeOrder']);
 
 				$files_list = glob($path.'*.{'.implode(',', $config['fileTypeOrder']).'}', GLOB_BRACE);
-			} else {
+			}
+			else
+			{
 				$files_list = scandir($path);
 			}
 
 			foreach ($files_list as $entry)
 			{
 				$entry = str_replace($path, '', $entry); // if glob, remove path from filename
-				if (is_file($path.$entry)) $files[] = $entry;
+
+				if (is_file($path.$entry))
+					$files[] = $entry;
 			}
 		}
 
@@ -1094,6 +1187,7 @@ class Upstream {
 			$fileTypes = explode('|', $fileTypes);
 
 		$fileTypeCategories = config('upload.file_type_categories');
+
 		for ($t=0; $t < count($fileTypes); $t++)
 		{
 			$category = false;
@@ -1104,7 +1198,8 @@ class Upstream {
 				{
 					$category = true;
 
-					foreach ($fileTypesForCategory as $fileType) {
+					foreach ($fileTypesForCategory as $fileType)
+					{
 						$fileTypesFormatted[] = $fileType;
 					}
 				}
@@ -1125,10 +1220,12 @@ class Upstream {
 	 */
 	public function uriToFilename($uri = '')
 	{
-		$sections = explode('_', $uri); $filename = "";
+		$filename = "";
+		$sections = explode('_', $uri);
 		$last     = count($sections) - 1;
 
-		for ($s=0; $s < $last; $s++) {
+		for ($s=0; $s < $last; $s++)
+		{
 			if ($filename != "")
 				$filename .= "_";
 
@@ -1162,9 +1259,12 @@ class Upstream {
 
 				$pathPartial .= $pathArray[$p];
 
-				if (!is_dir($pathPartial)) {
+				if (!is_dir($pathPartial))
+				{
 					mkdir($pathPartial);
+
 					chmod($pathPartial, sprintf('%04d', $permissions));
+
 					$directoriesCreated ++;
 				}
 			}
@@ -1184,11 +1284,14 @@ class Upstream {
 		if (is_file($image))
 		{
 			$image = getimagesize($image);
+
 			return [
 				'w' => $image[0],
 				'h' => $image[1],
 			];
-		} else {
+		}
+		else
+		{
 			return [
 				'w' => 0,
 				'h' => 0,
@@ -1213,8 +1316,9 @@ class Upstream {
 				return $this->convertFileSize($fileSize);
 			else
 				return $fileSize;
-
-		} else {
+		}
+		else
+		{
 			if ($convert)
 				return '0.00 KB';
 			else
@@ -1230,17 +1334,28 @@ class Upstream {
 	 */
 	public function convertFileSize($fileSize)
 	{
-		if ($fileSize < 1024) {
+		if ($fileSize < 1024)
+		{
 			return $fileSize .' B';
-		} else if ($fileSize < 1048576) {
+		}
+		else if ($fileSize < 1048576)
+		{
 			return round($fileSize / 1024, 2) .' KB';
-		} else if ($fileSize < 1073741824) {
+		}
+		else if ($fileSize < 1073741824)
+		{
 			return round($fileSize / 1048576, 2) . ' MB';
-		} else if ($fileSize < 1099511627776) {
+		}
+		else if ($fileSize < 1099511627776)
+		{
 			return round($fileSize / 1073741824, 2) . ' GB';
-		} else if ($fileSize < 1125899906842624) {
+		}
+		else if ($fileSize < 1125899906842624)
+		{
 			return round($fileSize / 1099511627776, 2) .' TB';
-		} else {
+		}
+		else
+		{
 			return round($fileSize / 1125899906842624, 2) .' PB';
 		}
 	}
@@ -1270,7 +1385,8 @@ class Upstream {
 			$path      = "";
 			$last      = count($pathArray) - 1;
 
-			for ($p=0; $p < $last; $p++) {
+			for ($p=0; $p < $last; $p++)
+			{
 				if ($path != "")
 					$path .= "/";
 
@@ -1309,36 +1425,54 @@ class Upstream {
 				$filesForType = [];
 				$quantity     = 0;
 
-				while (false !== ($entry = readdir($handle))) {
-					if (is_file($directory.$entry)) {
+				while (false !== ($entry = readdir($handle)))
+				{
+					if (is_file($directory.$entry))
+					{
 						$fileExt = File::extension($entry);
-						if ($fileExt) {
-							if (in_array(strtolower($fileExt), $fileTypes) && !in_array($directory.$entry, $filesForType)) {
+
+						if ($fileExt)
+						{
+							if (in_array(strtolower($fileExt), $fileTypes) && !in_array($directory.$entry, $filesForType))
+							{
 								$filesForType[] = $directory.$entry;
+
 								$quantity ++;
 							}
 						} // end if file extension exists (entry is not a directory)
 					}
 				} // end while file in directory
 
-				while ($quantity > $limit) { // if there are too many files of filetype being checked delete until at limit starting with oldest files
+				// if there are too many files of filetype being checked delete until at limit starting with oldest files
+				while ($quantity > $limit)
+				{
 					$oldestFile = -1;
-					foreach ($filesForType as $index => $file) {
-						if ($oldestFile == -1) {
+					foreach ($filesForType as $index => $file)
+					{
+						if ($oldestFile == -1)
+						{
 							$oldestFile = $index;
-						} else {
-							if (filemtime($file) < filemtime($filesForType[$oldestFile])) $oldestFile = $index;
+						}
+						else
+						{
+							if (filemtime($file) < filemtime($filesForType[$oldestFile]))
+								$oldestFile = $index;
 						}
 					}
 
-					if (isset($filesForType[$oldestFile]) && is_file($filesForType[$oldestFile])) {
+					if (isset($filesForType[$oldestFile]) && is_file($filesForType[$oldestFile]))
+					{
 						unlink($filesForType[$oldestFile]);
+
 						$deletedFiles[] = $filesForType[$oldestFile];
+
 						unset($filesForType[$oldestFile]);
+
 						$quantity --;
 					}
 				} // end while quantity > limit
 				rewinddir($handle);
+
 			} // end while limits
 		} // end if directory can be opened
 
@@ -1354,18 +1488,29 @@ class Upstream {
 	 */
 	public function deleteDirectory($directory = '', $deleteAllContents = false)
 	{
-		if (substr($directory, -1) != "/") $directory .= "/"; // add trailing slash to directory if it doesn't exist
+		// add trailing slash to directory if it doesn't exist
+		if (substr($directory, -1) != "/")
+			$directory .= "/";
+
 		$deletedFiles = 0;
 
-		if (is_dir($directory) && $handle = opendir($directory)) {
-			while (false !== ($entry = readdir($handle))) {
-				if (!$deleteAllContents) return $deletedFiles;
+		if (is_dir($directory) && $handle = opendir($directory))
+		{
+			while (false !== ($entry = readdir($handle)))
+			{
+				if (!$deleteAllContents)
+					return $deletedFiles;
 
-				if ($entry != "." && $entry != "..") {
-					if (is_file($directory.$entry)) {
+				if ($entry != "." && $entry != "..")
+				{
+					if (is_file($directory.$entry))
+					{
 						unlink($directory.$entry);
+
 						$deletedFiles ++;
-					} else if (is_dir($directory.$entry)) { // delete sub-directory and all files/directorys it contains
+					}
+					else if (is_dir($directory.$entry)) // delete sub-directory and all files/directorys it contains
+					{
 						$deletedFiles += $this->deleteDirectory($directory.$entry, true);
 					}
 				}
