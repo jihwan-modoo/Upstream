@@ -11,7 +11,6 @@ return [
 	|
 	*/
 	'defaults' => [
-
 		'path'             => 'uploads',
 		'fields'           => true, // use a string like "image" if you have only one file field called "image" that you would like to process or pass an array for specific file fields
 		'field_thumb'      => 'thumbnail_image',
@@ -62,14 +61,19 @@ return [
 
 	/*
 	|--------------------------------------------------------------------------
-	| Thumbnails Directory
+	| Thumbnails Directory / Suffix
 	|--------------------------------------------------------------------------
 	|
-	| The thumbnails directory which defaults to "thumbnails" which means
-	| thumbnail images will be stored one directory down from the larger image.
+	| You may set a thumbnails directory relative to your main image file's
+	| directory, such as "thumbnails". Alternately, you may set a suffix
+	| instead, which is the default, that will make your file something like
+	| "profile-small.jpg". Use false or null on either of these to not turn
+	| them off. Please note though that if they are both false/null, no
+	| thumbnail image will be created.
 	|
 	*/
-	'thumbnails_directory' => 'thumbnails',
+	'thumbnails_directory' => null,
+	'thumbnails_suffix'    => '-small',
 
 	/*
 	|--------------------------------------------------------------------------

@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.6
-		last updated on March 22, 2017
+		version 0.6.7
+		last updated on November 16, 2017
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -587,11 +587,22 @@ class Upstream {
 		];
 
 		$thumbnailsDirectory = config('upload.thumbnails_directory');
+		$thumbnailsSuffix    = config('upload.thumbnails_suffix');
 
 		// set path
 		$file->path = $this->config['path'];
 		if ($this->config['fieldThumb'] && $file->field == $this->config['fieldThumb'])
-			$file->path .= $thumbnailsDirectory;
+		{
+			if (!is_null($thumbnailsDirectory) && $thumbnailsDirectory !== false)
+			{
+				$file->path .= $thumbnailsDirectory;
+			}
+
+			if (!is_null($thumbnailsSuffix) && $thumbnailsSuffix !== false)
+			{
+				$file->newFilename = str_replace('.'.$extension, $thumbnailsSuffix.'.'.$extension, $thumbnailsDirectory);
+			}
+		}
 
 		// add image dimensions
 		$file = $this->addImageDimensionsData($file);
@@ -606,9 +617,13 @@ class Upstream {
 		if ($file->isImage)
 		{
 			if ($this->config['imageThumb'])
+			{
 				$file->thumbnailUrl = url($this->config['path'].$thumbnailsDirectory.'/'.$file->newFilename).($this->config['noCacheUrl'] ? '?'.rand(1, 99999) : '');
+			}
 			else
+			{
 				$file->thumbnailUrl = $file->url;
+			}
 		}
 
 		return $file;
@@ -640,6 +655,60 @@ class Upstream {
 	}
 
 	/**
+	 * Get a file object from a file path.
+	 *
+	 * @param  string   $path
+	 * @return mixed
+	 */
+	public function getThumbnailFilePath($path)
+	{
+		if (!is_file($path))
+			return null;
+
+		$pathArray = explode('/', $path);
+		$filename  = end($pathArray);
+		$extension = File::extension($filename);
+
+		$thumbnailPath      = "";
+		$last      = count($pathArray) - 1;
+
+		for ($p = 0; $p < $last; $p++)
+		{
+			if ($thumbnailPath != "")
+				$thumbnailPath .= "/";
+
+			$thumbnailPath .= $pathArray[$p];
+		}
+
+		$thumbnailsDirectory = config('upload.thumbnails_directory');
+
+		if (!is_null($thumbnailsDirectory) && $thumbnailsDirectory !== false)
+		{
+			if ($thumbnailPath != "")
+				$thumbnailPath .= "/";
+
+			$thumbnailPath .= $thumbnailsDirectory;
+		}
+
+		$thumbnailsSuffix = config('upload.thumbnails_suffix');
+
+		if (!is_null($thumbnailsSuffix) && $thumbnailsSuffix !== false)
+		{
+			$filename = str_replace('.'.$extension, $thumbnailsSuffix.'.'.$extension, $filename);
+		}
+
+		if ($thumbnailPath != "")
+			$thumbnailPath .= "/";
+
+		$thumbnailPath .= $filename;
+
+		if ($thumbnailPath == $path) // thumbnail path is the same as the regular file path; return null
+			return null;
+
+		return $thumbnailPath;
+	}
+
+	/**
 	 * Add image dimensions data to a file array.
 	 *
 	 * @param  array    $file
@@ -647,20 +716,21 @@ class Upstream {
 	 */
 	public function addImageDimensionsData($file)
 	{
-		if ($file->isImage && File::exists($this->config['path'].'/'.$file->newFilename))
+		if ($file->isImage && File::exists($file->path.'/'.$file->newFilename))
 		{
-			$size = getimagesize($this->config['path'].'/'.$file->newFilename);
+			$size = getimagesize($file->path.'/'.$file->newFilename);
 
 			if (!empty($size))
 			{
 				$file->imageDimensions->w = $size[0];
 				$file->imageDimensions->h = $size[1];
 
-				$thumbnailsDirectory = config('upload.thumbnails_directory');
+				$filename = $this->getThumbnailFilePath($file->path.'/'.$file->newFilename);
 
-				if (File::exists($file->path.'/'.$thumbnailsDirectory.'/'.$file->newFilename))
+				if (File::exists($filename))
 				{
-					$thumbnailSize = getimagesize($file->path.'/'.$thumbnailsDirectory.'/'.$file->newFilename);
+					$thumbnailSize = getimagesize($filename);
+
 					if (!empty($thumbnailSize))
 					{
 						$file->imageDimensions->tw = $thumbnailSize[0];
@@ -715,7 +785,15 @@ class Upstream {
 			'h' => $this->config['imageDimensions']['th'],
 		];
 
-		$thumbsPath = $this->config['path'].config('upload.thumbnails_directory').'/';
+		$thumbnailsDirectory = config('upload.thumbnails_directory');
+
+		$thumbsPath = $this->config['path'];
+
+		if (!is_null($thumbnailsDirectory) && $thumbnailsDirectory !== false)
+		{
+			$thumbsPath .= config('upload.thumbnails_directory').'/';
+		}
+
 		if ($this->config['createDirectory'] && !is_dir($thumbsPath))
 			$this->createDirectory($thumbsPath);
 
@@ -743,6 +821,13 @@ class Upstream {
 		$thumbOriginalFilename = $file->name;
 		$thumbOriginalFileExt  = strtolower(File::extension($thumbOriginalFilename));
 		$thumbFilename         = $file->newFilename;
+
+		$thumbnailsSuffix = config('upload.thumbnails_suffix');
+
+		if (!is_null($thumbnailsSuffix) && $thumbnailsSuffix !== false)
+		{
+			$thumbFilename = str_replace('.'.$file->extension, $thumbnailsSuffix.'.'.$file->extension, $thumbFilename);
+		}
 
 		if (!in_array($thumbOriginalFileExt, $this->imageExtensions))
 			return false;
@@ -818,14 +903,16 @@ class Upstream {
 		// error check 1: file not found
 		if (!is_file($path.$originalFilename))
 		{
-			$this->returnData->message = 'The file you specified was not found ('.$originalFilename.').';
+			$this->returnData->message = trans('upstream::errors.file_not_found', ['filename' => $originalFilename]);
+
 			return $this->returnData;
 		}
 
 		// error check 2: file is not an image
 		if (!in_array($originalFileExt, $this->imageExtensions))
 		{
-			$this->returnData->message = 'The file you specified was not an image ('.$originalFilename.').';
+			$this->returnData->message = trans('upstream::errors.file_not_image', ['filename' => $originalFilename]);
+
 			return $this->returnData;
 		}
 
@@ -880,7 +967,8 @@ class Upstream {
 				}
 				else
 				{
-					$this->returnData->message = 'A file already exists with the name specified ('.$filename.').';
+					$this->returnData->message = trans('upstream::errors.file_already_exists', ['filename' => $filename]);
+
 					return $this->returnData;
 				}
 			}
@@ -893,7 +981,8 @@ class Upstream {
 				}
 				else
 				{
-					$this->returnData->message = 'The directory you specified does not exist ('.$newPath.').';
+					$this->returnData->message = trans('upstream::errors.directory_not_found', ['path' => $newPath]);
+
 					return $this->returnData;
 				}
 			}
@@ -927,11 +1016,17 @@ class Upstream {
 
 				// save cropped image to file
 				if ($fileType == "jpg")
+				{
 					imagejpeg($imageCropped, $newPath.$filename, $this->config['imageResizeQuality']);
+				}
 				elseif ($fileType == "gif")
+				{
 					imagegif($imageCropped, $newPath.$filename);
+				}
 				elseif ($fileType == "png")
+				{
 					imagepng($imageCropped, $newPath.$filename);
+				}
 			}
 
 			// create thumbnail image if necessary
@@ -1057,8 +1152,6 @@ class Upstream {
 		else
 			$config['fileTypes'] = '*';
 
-		$thumbnailsDirectory = config('upload.thumbnails_directory');
-
 		$result = [];
 		if (is_dir($path))
 		{
@@ -1106,10 +1199,16 @@ class Upstream {
 								'error'      => false,
 							];
 
+							$thumbnailFile = $this->getThumbnailFilePath($path.$filename);
+
 							if ($file->isImage)
-								$file->thumbnailUrl = is_file($path.$thumbnailsDirectory.'/'.$filename) ? url($path.$thumbnailsDirectory.'/'.$filename) : $file->url;
+							{
+								$file->thumbnailUrl = is_file($thumbnailFile) ? url($thumbnailFile) : $file->url;
+							}
 							else
+							{
 								$file->thumbnailUrl = url($this->config['defaultThumb']);
+							}
 
 							$result[] = $file;
 						}
@@ -1379,22 +1478,10 @@ class Upstream {
 		// delete thumbnail image if it exists
 		if (in_array($extension, $this->imageExtensions))
 		{
-			$thumbnailsDirectory = config('upload.thumbnails_directory');
+			$thumbnailFile = $this->getThumbnailFilePath($path);
 
-			$pathArray = explode('/', $file);
-			$path      = "";
-			$last      = count($pathArray) - 1;
-
-			for ($p=0; $p < $last; $p++)
-			{
-				if ($path != "")
-					$path .= "/";
-
-				$path .= $pathArray[$p];
-			}
-
-			if (is_file($path.'/'.$thumbnailsDirectory.'/'.$pathArray[$p]))
-				unlink($path.'/'.$thumbnailsDirectory.'/'.$pathArray[$p]);
+			if (is_file($thumbnailFile))
+				unlink($thumbnailFile);
 		}
 
 		return $success;

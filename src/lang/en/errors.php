@@ -3,7 +3,10 @@
 return [
 
 	'general'             => 'Something went wrong. Please try again.',
+	'file_not_found'      => 'The file specified was not found (:filename).',
+	'file_not_image'      => 'The file specified was not an image (:filename).',
 	'file_already_exists' => 'A file already exists with the name specified (:filename).',
+	'directory_not_found' => 'The directory specified does not exist (:path).',
 	'file_required'       => 'You must upload a file.',
 	'image_required'      => 'You must upload an image file.',
 	'formats_required'    => 'You must upload a file in one of the following formats:.',
