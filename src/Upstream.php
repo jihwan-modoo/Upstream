@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.7
-		last updated on November 16, 2017
+		version 0.6.8
+		last updated on March 19, 2018
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -367,7 +367,7 @@ class Upstream {
 									case "jpg":
 									case "jpeg":
 
-										$image = imagecreatefromjpeg($imagePath);
+										$image = @imagecreatefromjpeg($imagePath);
 
 										break;
 
@@ -942,8 +942,24 @@ class Upstream {
 		$fileType = "";
 		if (in_array($originalFileExt, ['jpg', 'jpeg']))
 		{
-			$imageOriginal = imagecreatefromjpeg($path.$originalFilename);
+			$imageOriginal = @imagecreatefromjpeg($path.$originalFilename);
 			$fileType      = "jpg";
+
+			$exif = exif_read_data($path.$originalFilename);
+			if ($imageOriginal && $exif && isset($exif['Orientation']))
+			{
+				$orientation = $exif['Orientation'];
+
+				if ($orientation == 6 || $orientation == 5)
+					$imageOriginal = imagerotate($imageOriginal, 270, null);
+				if ($orientation == 3 || $orientation == 4)
+					$imageOriginal = imagerotate($imageOriginal, 180, null);
+				if ($orientation == 8 || $orientation == 7)
+					$imageOriginal = imagerotate($imageOriginal, 90, null);
+
+				if ($orientation == 5 || $orientation == 4 || $orientation == 7)
+					imageflip($imageOriginal, IMG_FLIP_HORIZONTAL);
+			}
 		}
 		else if ($originalFileExt == "gif")
 		{
