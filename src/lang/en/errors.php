@@ -9,7 +9,7 @@ return [
 	'directory_not_found' => 'The directory specified does not exist (:path).',
 	'file_required'       => 'You must upload a file.',
 	'image_required'      => 'You must upload an image file.',
-	'formats_required'    => 'You must upload a file in one of the following formats:.',
+	'formats_required'    => 'You must upload a file in one of the following formats: :formats.',
 	'max_file_size'       => 'Your file must not exceed :maxFileSize.',
 	'min_image_size'      => 'Your image must be at least :minWidth x :minHeight.',
 	'min_image_width'     => 'Your image must be at least :minWidth pixels in width.',
