@@ -1353,39 +1353,15 @@ class Upstream {
 	}
 
 	/**
-	 * Convert a URL-friendly filename to the actual filename.
+	 * Create a directory (recursively).
 	 *
 	 * @param  string   $path
 	 * @param  integer  $permissions
-	 * @return integer
+	 * @return void
 	 */
 	public function createDirectory($path, $permissions = 0777)
 	{
-		$pathArray          = explode('/', $path);
-		$pathPartial        = "";
-		$directoriesCreated = 0;
-
-		for ($p=0; $p < count($pathArray); $p++)
-		{
-			if ($pathArray[$p] != "")
-			{
-				if ($pathPartial != "")
-					$pathPartial .= "/";
-
-				$pathPartial .= $pathArray[$p];
-
-				if (!is_dir($pathPartial))
-				{
-					mkdir($pathPartial);
-
-					chmod($pathPartial, sprintf('%04d', $permissions));
-
-					$directoriesCreated ++;
-				}
-			}
-		}
-
-		return $directoriesCreated;
+		mkdir($path, $permissions, true);
 	}
 
 	/**
