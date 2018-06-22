@@ -162,7 +162,7 @@ class Upstream {
 							if ($fileTypesImage)
 								$error = trans('upstream::errors.image_required');
 							else
-								$error = trans('upstream::errors.formats_required', ['formats' => implode(', ', $this->config['fileTypes'])]);
+								$error = trans('upstream::errors.formats_required', ['formats' => strtoupper(implode(', ', $this->config['fileTypes']))]);
 						}
 					}
 					else
