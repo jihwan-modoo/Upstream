@@ -5,8 +5,8 @@
 		A simple composer package for Laravel 5 that assists in file uploads and image resizing/cropping.
 
 		created by Cody Jassman
-		version 0.6.9
-		last updated on June 22, 2018
+		version 0.6.10
+		last updated on June 24, 2018
 ----------------------------------------------------------------------------------------------------------*/
 
 use Illuminate\Support\Facades\File;
@@ -531,7 +531,15 @@ class Upstream {
 	public function addAdditionalFileData($file)
 	{
 		if (isset($file->newFilename))
+		{
+			// add image dimensions if they are not yet set (image not yet copied at the time of initial call to this function)
+			if ($file->isImage && isset($file->imageDimensions) && isset($file->imageDimensions->w) && is_null($file->imageDimensions->w))
+			{
+				$file = $this->addImageDimensionsData($file);
+			}
+
 			return $file;
+		}
 
 		$originalFilename  = $file->name;
 		$originalExtension = strtolower(File::extension($originalFilename));
@@ -655,6 +663,17 @@ class Upstream {
 	}
 
 	/**
+	 * Combine a file path with a filename and remove double slashes.
+	 *
+	 * @param  string   $path
+	 * @return mixed
+	 */
+	public function getFilePath($path, $filename)
+	{
+		return str_replace('//', '/', $path.'/'.$filename);
+	}
+
+	/**
 	 * Get a file object from a file path.
 	 *
 	 * @param  string   $path
@@ -669,8 +688,9 @@ class Upstream {
 		$filename  = end($pathArray);
 		$extension = File::extension($filename);
 
-		$thumbnailPath      = "";
-		$last      = count($pathArray) - 1;
+		$thumbnailPath = "";
+
+		$last = count($pathArray) - 1;
 
 		for ($p = 0; $p < $last; $p++)
 		{
@@ -716,25 +736,30 @@ class Upstream {
 	 */
 	public function addImageDimensionsData($file)
 	{
-		if ($file->isImage && File::exists($file->path.'/'.$file->newFilename))
+		if ($file->isImage)
 		{
-			$size = getimagesize($file->path.'/'.$file->newFilename);
+			$filePath = $this->getFilePath($file->path, $file->newFilename);
 
-			if (!empty($size))
+			if (File::exists($filePath))
 			{
-				$file->imageDimensions->w = $size[0];
-				$file->imageDimensions->h = $size[1];
+				$size = getimagesize($filePath);
 
-				$filename = $this->getThumbnailFilePath($file->path.'/'.$file->newFilename);
-
-				if (File::exists($filename))
+				if (!empty($size))
 				{
-					$thumbnailSize = getimagesize($filename);
+					$file->imageDimensions->w = $size[0];
+					$file->imageDimensions->h = $size[1];
 
-					if (!empty($thumbnailSize))
+					$thumbnailFilePath = $this->getThumbnailFilePath($filePath);
+
+					if (File::exists($thumbnailFilePath))
 					{
-						$file->imageDimensions->tw = $thumbnailSize[0];
-						$file->imageDimensions->th = $thumbnailSize[1];
+						$thumbnailSize = getimagesize($thumbnailFilePath);
+
+						if (!empty($thumbnailSize))
+						{
+							$file->imageDimensions->tw = $thumbnailSize[0];
+							$file->imageDimensions->th = $thumbnailSize[1];
+						}
 					}
 				}
 			}
@@ -838,7 +863,12 @@ class Upstream {
 		// resize image
 		$image = Image::make($thumbSource);
 
-		$aspectRatioMatches = ($file->imageDimensions->w / $file->imageDimensions->h) == ($resizeDimensions['w'] / $resizeDimensions['h']);
+		$aspectRatioMatches = true;
+
+		if (!is_null($file->imageDimensions->h) && $file->imageDimensions->h > 0 && !is_null($resizeDimensions['h']) && $resizeDimensions['h'] > 0)
+		{
+			$aspectRatioMatches = ($file->imageDimensions->w / $file->imageDimensions->h) == ($resizeDimensions['w'] / $resizeDimensions['h']);
+		}
 
 		$resizeDimensionsAdjusted = $resizeDimensions;
 		if (!$aspectRatioMatches)
