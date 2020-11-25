@@ -1,5 +1,5 @@
 {
-	"name": "nex/upstream",
+	"name": "nexwap/upstream",
 	"description": "A simple composer package for Laravel 8 that assists with file uploads and image resizing/cropping.",
 	"license": "MIT",
 	"authors": [
